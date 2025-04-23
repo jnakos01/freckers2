@@ -2,8 +2,9 @@
 # Project Part B: Game Playing Agent
 
 from referee.game import PlayerColor, Coord, Direction, \
-    Action, MoveAction, GrowAction
-    
+    Action, MoveAction, GrowAction, GameBegin, Board
+
+from .internal_board import InternalBoard
 
 class Agent:
     """
@@ -23,8 +24,11 @@ class Agent:
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
 
-        # Construct board representation from referee data
-        self._board = InternalBoard(referee['board'], color)
+        # Construct initial board representation
+        initial_board = Board()
+        self._board = InternalBoard(initial_board, color)
+
+
 
     def action(self, **referee: dict) -> Action:
         """
