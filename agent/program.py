@@ -6,11 +6,21 @@ from referee.game import PlayerColor, Coord, Direction, \
 
 from .internal_board import InternalBoard
 
+
 class Agent:
     """
     This class is the "entry point" for your agent, providing an interface to
     respond to various Freckers game events.
     """
+    # Node access constants for node tuple
+    # Credit: Canvas robot-search strategy example
+    COORDINATES = 0
+    CELL_STATE = 1
+    PARENT = 2
+    ACTION = 3
+    DEPTH = 4
+    CHILDREN = 5
+
 
     def __init__(self, color: PlayerColor, **referee: dict):
         """
@@ -51,6 +61,9 @@ class Agent:
                 print("Testing: BLUE is playing a GROW action")
                 return GrowAction()
 
+        # Ensure to update our internal board with our chosen 'best' action
+        # self._board.update(self._color, final_action)
+
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
         This method is called by the referee after a player has taken their
@@ -67,6 +80,11 @@ class Agent:
                 print(f"Testing: {color} played MOVE action:")
                 print(f"  Coord: {coord}")
                 print(f"  Directions: {dirs_text}")
+
+                # Update the internal board with the move
+                self._board.update(action)
+
+
             case GrowAction():
                 print(f"Testing: {color} played GROW action")
             case _:
