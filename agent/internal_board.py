@@ -239,6 +239,7 @@ class InternalBoard:
                 enemy_sum += distance
 
 
-        # Return the difference between the player and enemy sums
-        return player_sum - enemy_sum
+        # Return the difference enemy sum and player sum
+        # As higher values are best for the player
+        return enemy_sum - player_sum
 

@@ -120,12 +120,14 @@ class Agent:
             return depth > d or self._board.terminal_state()
 
         # Body of Alpha beta pruning algorithm
+        # Best score for min on the path to state
         beta = np.inf
         best_score = -np.inf
         best_action = None
 
         # Look through all possible actions
-        for action in self._board.get_possible_actions():
+        for action in self._board.get_all_legal_actions():
+            continue
 
 
 
