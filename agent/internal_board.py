@@ -22,9 +22,9 @@ class InternalBoard:
         blue_frog_coords = []
         # Stores all player frog coordinates
         for coord, cell_state in self.board._state.items():
-            if cell_state == PlayerColor.RED:
+            if cell_state.state == PlayerColor.RED:
                 red_frog_coords.append(coord)
-            elif cell_state == PlayerColor.BLUE:
+            elif cell_state.state == PlayerColor.BLUE:
                     blue_frog_coords.append(coord)
 
         if player_color == PlayerColor.RED:
@@ -41,16 +41,14 @@ class InternalBoard:
         """
         Returns all legal actions for the player whose turn it is.
         """
-
         # List to store all legal actions
         all_actions = [GrowAction()]
 
-        # Add grow action as it is always available
 
         # Get all possible moves for each player frog
         for coord in self.player_coords:
             # Get all possible directions for the current frog
-            possible_directions = self.get_possible_directions(self.board.current_player_color)
+            possible_directions = self.get_possible_directions(self.board.turn_color)
             # Create a move action for each possible direction if valid
             for direction in possible_directions:
                 try:
@@ -139,7 +137,7 @@ class InternalBoard:
 
     def get_possible_directions(self, player_color: PlayerColor) -> list[Direction]:
         """
-        Returns a list of all legal directions for the player who's turn it is.
+        Returns a list of all legal directions for the player whose turn it is.
         Does not validate the action.
         """
         possible_directions = []
@@ -171,6 +169,9 @@ class InternalBoard:
                     self.board.apply_action(action)
                 except IllegalActionException:
                     raise ValueError("Illegal action encountered during apply_action")
+        # Recalculate player and enemy coordinates
+        self.player_coords, self.enemy_coords = self.find_frog_coordinates(self.player_color)
+
 
 
     def undo_action(self):
@@ -178,6 +179,8 @@ class InternalBoard:
         try:
             # Undo the last action applied to the board
             self.board.undo_action()
+            # Recalculate player and enemy coordinates
+            self.player_coords, self.enemy_coords = self.find_frog_coordinates(self.player_color)
         except IndexError:
             raise ValueError("No actions to undo")
 
@@ -201,7 +204,7 @@ class InternalBoard:
         Components:
         1. Sum of vertical distance to end of board for each player frog - that of the enemies
         """
-
+        
         return self.vertical_distances()
 
 
