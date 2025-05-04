@@ -216,7 +216,7 @@ class InternalBoard:
 
         # Component 1
         # Calculate the distance to the end of the board for each player frog
-        if self.player_turn == PlayerColor.RED:
+        if self.player_color == PlayerColor.RED:
             for p_coord in self.player_coords:
                 # Distance to end of board (-7)
                 distance = abs(p_coord.r - (constants.BOARD_N - 1))
@@ -227,7 +227,7 @@ class InternalBoard:
                 distance = abs(e_coord.r)
                 enemy_sum += distance
 
-        elif self.player_turn == PlayerColor.BLUE:
+        elif self.player_color == PlayerColor.BLUE:
             for p_coord in self.player_coords:
                 # Distance to other end of board (-7)
                 distance = abs(p_coord.r)
