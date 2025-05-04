@@ -241,3 +241,4 @@ class InternalBoard:
 
         # Return the difference between the player and enemy sums
         return player_sum - enemy_sum
+

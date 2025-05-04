@@ -6,6 +6,7 @@ from referee.game import PlayerColor, Coord, Direction, \
 
 from .internal_board import InternalBoard
 
+import numpy as np
 
 class Agent:
     """
@@ -35,8 +36,7 @@ class Agent:
                 print("Testing: I am playing as BLUE")
 
         # Construct initial board representation
-        initial_board = Board()
-        self._board = InternalBoard(initial_board, color)
+        self._board = InternalBoard(color)
 
 
 
@@ -101,6 +101,31 @@ class Agent:
         Searches for the best possible action given the state of the game using the
         minimax with alpha-beta pruning algorithm. Cutoff is based on depth and presence of a terminal state.
         Evaluates each state using an evaluation function to choose the best action.
+
+        Credit to AIMA textbook for the algorithm structure.
         """
+
+        # Functions required for alpha-beta pruning
+        def max_value(alpha, beta, depth):
+            pass
+
+        def min_value(alpha, beta, depth):
+            pass
+
+        def cutoff_test(depth):
+            """
+            Returns True if the current depth is greater
+            than the cutoff depth or if the state is terminal.
+            """
+            return depth > d or self._board.terminal_state()
+
+        # Body of Alpha beta pruning algorithm
+        beta = np.inf
+        best_score = -np.inf
+        best_action = None
+
+        # Look through all possible actions
+        for action in self._board.get_possible_actions():
+
 
 

@@ -456,3 +456,5 @@ class Board:
 
     def set_turn_color(self, color: PlayerColor):
         self._turn_color = color
+
+
