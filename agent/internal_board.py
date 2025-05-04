@@ -1,15 +1,16 @@
 from typing import Any
 
 from referee.game import PlayerColor, Coord, Direction, \
-    Action, MoveAction, GrowAction, GameBegin, Board, IllegalActionException
+    Action, MoveAction, GrowAction, GameBegin, Board, IllegalActionException, constants
+
 
 
 class InternalBoard:
     def __init__(self, player_color: PlayerColor):
         self.board = Board()
         self.player_coords, self.enemy_coords = self.find_frog_coordinates(player_color)
-        # Set the first player to move to be red
-        self.player_turn = PlayerColor.RED
+        # Which player are we playing as
+        self.player_color = player_color
 
 
     def find_frog_coordinates(self, player_color: PlayerColor):
@@ -49,7 +50,7 @@ class InternalBoard:
         # Get all possible moves for each player frog
         for coord in self.player_coords:
             # Get all possible directions for the current frog
-            possible_directions = self.get_possible_directions(self.player_turn)
+            possible_directions = self.get_possible_directions(self.board.current_player_color)
             # Create a move action for each possible direction if valid
             for direction in possible_directions:
                 try:
@@ -179,3 +180,64 @@ class InternalBoard:
             self.board.undo_action()
         except IndexError:
             raise ValueError("No actions to undo")
+
+
+
+    def terminal_state(self) -> bool:
+        """
+        Returns true if the game is over, false if the game is not over at the board's state.
+        """
+        if self.board.game_over:
+            return True
+        else:
+            return False
+
+
+    def eval(self) -> float:
+        """
+        Returns the evaluation of the board state, positive if the player is winning,
+        negative if the player is losing.
+
+        Components:
+        1. Sum of vertical distance to end of board for each player frog - that of the enemies
+        """
+
+        return self.vertical_distances()
+
+
+    def vertical_distances(self):
+        """
+        Returns the first evaluation component:
+        The sum of the distances to the end of the board for each player frog
+        - that of the enemies.
+        """
+        player_sum = 0
+        enemy_sum = 0
+
+        # Component 1
+        # Calculate the distance to the end of the board for each player frog
+        if self.player_turn == PlayerColor.RED:
+            for p_coord in self.player_coords:
+                # Distance to end of board (-7)
+                distance = abs(p_coord.r - (constants.BOARD_N - 1))
+                player_sum += distance
+            # Sum up enemy frog distances (blue)
+            for e_coord in self.enemy_coords:
+                # Distance to other end of board
+                distance = abs(e_coord.r)
+                enemy_sum += distance
+
+        elif self.player_turn == PlayerColor.BLUE:
+            for p_coord in self.player_coords:
+                # Distance to other end of board (-7)
+                distance = abs(p_coord.r)
+                player_sum += distance
+            # Sum up enemy frog distances (red)
+            for e_coord in self.enemy_coords:
+                # Distance to end of board
+                distance = abs(e_coord.r - (constants.BOARD_N - 1))
+                enemy_sum += distance
+
+
+        # Return the difference between the player and enemy sums
+        return player_sum - enemy_sum

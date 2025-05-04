@@ -46,6 +46,10 @@ class Agent:
         to take an action. It must always return an action object. 
         """
 
+        # Implement minimax with alpha-beta pruning here
+
+
+
         # Below we have hardcoded two actions to be played depending on whether
         # the agent is playing as BLUE or RED. Obviously this won't work beyond
         # the initial moves of the game, so you should use some game playing
@@ -61,8 +65,8 @@ class Agent:
                 print("Testing: BLUE is playing a GROW action")
                 return GrowAction()
 
-        # Ensure to update our internal board with our chosen 'best' action
-        # self._board.update(self._color, final_action)
+        # Our board will be updated by referee
+
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
@@ -89,3 +93,14 @@ class Agent:
                 print(f"Testing: {color} played GROW action")
             case _:
                 raise ValueError(f"Unknown action type: {action}")
+
+
+
+    def alpha_beta_cutoff_search(self, d = 4, **referee: dict) -> Action:
+        """
+        Searches for the best possible action given the state of the game using the
+        minimax with alpha-beta pruning algorithm. Cutoff is based on depth and presence of a terminal state.
+        Evaluates each state using an evaluation function to choose the best action.
+        """
+
+
