@@ -3,6 +3,7 @@ from typing import Any
 from referee.game import PlayerColor, Coord, Direction, \
     Action, MoveAction, GrowAction, GameBegin, Board, IllegalActionException, constants
 
+import numpy as np
 
 
 class InternalBoard:
@@ -204,7 +205,14 @@ class InternalBoard:
         Components:
         1. Sum of vertical distance to end of board for each player frog - that of the enemies
         """
-        
+
+        # First set eval to inf if either player has won
+        if self.terminal_state():
+            if self.board.winner_color == self.player_color:
+                return np.inf
+            elif self.board.winner_color == self.player_color.opponent:
+                return -np.inf
+
         return self.vertical_distances()
 
 

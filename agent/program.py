@@ -15,7 +15,7 @@ class Agent:
     """
 
     # Depth limit for the alpha-beta pruning algorithm
-    MAX_DEPTH = 4
+    MAX_DEPTH = 2
 
 
     def __init__(self, color: PlayerColor, **referee: dict):
@@ -43,8 +43,8 @@ class Agent:
         """
 
         # Call minimax with alpha-beta pruning here
+        # best_action = self.minmax_decision(self._board, self.MAX_DEPTH)
         best_action = self.alpha_beta_cutoff_search(self.MAX_DEPTH, **referee)
-
         return best_action
         """
         # Below we have hardcoded two actions to be played depending on whether
@@ -97,6 +97,8 @@ class Agent:
         """
 
 
+
+
     def alpha_beta_cutoff_search(self, d, **referee: dict) -> Action:
         """
         Searches for the best possible action given the state of the game using the
@@ -107,9 +109,10 @@ class Agent:
         """
 
         # Functions required for alpha-beta pruning
-        def max_value(alpha, beta, depth):
+        def max_value(alpha, beta, depth, depth_counter):
             # Stop searching if we reach cutoff depth or terminal state
             if self._board.terminal_state() or cutoff_test(depth):
+                depth_counter['depth'] = max(depth_counter['depth'], depth)
                 return self._board.eval()
             # Best value for max at this node so gar
             # (Staring with the worst possible value)
@@ -119,7 +122,7 @@ class Agent:
                 # Apply action
                 self._board.update(a)
                 # Call min_value function
-                v = max(v, min_value(alpha, beta, depth + 1))
+                v = max(v, min_value(alpha, beta, depth, depth_counter))
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
@@ -130,8 +133,9 @@ class Agent:
             # Best value for max at this node
             return v
 
-        def min_value(alpha, beta, depth):
+        def min_value(alpha, beta, depth, depth_counter):
             if self._board.terminal_state() or cutoff_test(depth):
+                depth_counter['depth'] = max(depth_counter['depth'], depth)
                 return self._board.eval()
 
             # Best value for min at this node so far
@@ -142,7 +146,7 @@ class Agent:
                 # Apply action
                 self._board.update(a)
                 # Call max_value function
-                v = min(v, max_value(alpha, beta, depth + 1))
+                v = min(v, max_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
@@ -157,9 +161,9 @@ class Agent:
         def cutoff_test(depth):
             """
             Returns True if the current depth is greater
-            than the cutoff depth or if the state is terminal.
+            than the cutoff depth
             """
-            return depth > d or self._board.terminal_state()
+            return depth > d
 
         # Body of Alpha beta pruning algorithm
         # Best score for min on the path to state
@@ -169,12 +173,30 @@ class Agent:
         # Best action for max
         best_action = None
 
+        # If a solution is found what depth is it at?
+        best_depth = np.inf
+
+
+
         # Look through all possible actions
         for action in self._board.get_all_legal_actions():
             # Apply action
             self._board.update(action)
+            # Initialise depth counter for terminal state situation
+            depth_counter = {'depth': 0}
             # Find V (resulting state's min_value)
-            v = min_value(best_score, beta, 1)
+            v = min_value(best_score, beta, 1, depth_counter)
+
+            # Check if the action is a terminal state
+            if self._board.terminal_state():
+                # Check depth counter depth against best depth
+                if depth_counter['depth'] < best_depth:
+                    best_depth = depth_counter['depth']
+                    best_score = v
+                    best_action = action
+                    self._board.undo_action()
+                    continue
+
             # Undo action
             self._board.undo_action()
 
@@ -185,6 +207,3 @@ class Agent:
 
         # Return action with highest eval
         return best_action
-
-
-
