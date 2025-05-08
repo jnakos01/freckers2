@@ -15,7 +15,7 @@ class Agent:
     """
 
     # Depth limit for the alpha-beta pruning algorithm
-    MAX_DEPTH = 4
+    MAX_DEPTH = 2
 
 
     def __init__(self, color: PlayerColor, **referee: dict):

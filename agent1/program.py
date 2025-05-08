@@ -1,6 +1,9 @@
 # COMP30024 Artificial Intelligence, Semester 1 2025
 # Project Part B: Game Playing Agent
 
+# COMP30024 Artificial Intelligence, Semester 1 2025
+# Project Part B: Game Playing Agent
+
 from referee.game import PlayerColor, Coord, Direction, \
     Action, MoveAction, GrowAction, GameBegin
 
@@ -15,7 +18,7 @@ class Agent:
     """
 
     # Depth limit for the alpha-beta pruning algorithm
-    MAX_DEPTH = 2
+    MAX_DEPTH = 4
 
 
     def __init__(self, color: PlayerColor, **referee: dict):
@@ -116,7 +119,7 @@ class Agent:
             # (Staring with the worst possible value)
             v = -np.inf
             # Look through all legal actions
-            for a in self._board.get_all_legal_actions():
+            for a in self._board.get_all_legal_actions(self._color):
                 # Apply action
                 self._board.update(a)
                 # Call min_value function
@@ -140,7 +143,7 @@ class Agent:
             v = np.inf
 
             # Look through all legal actions
-            for a in self._board.get_all_legal_actions():
+            for a in self._board.get_all_legal_actions(self._color.opponent):
                 # Apply action
                 self._board.update(a)
                 # Call max_value function
@@ -177,7 +180,7 @@ class Agent:
 
 
         # Look through all possible actions
-        for action in self._board.get_all_legal_actions():
+        for action in self._board.get_all_legal_actions(self._color):
             # Apply action
             self._board.update(action)
             # Initialise depth counter for terminal state situation
@@ -202,6 +205,8 @@ class Agent:
             if v > best_score:
                 best_score = v
                 best_action = action
-
+            if best_action is None:
+                print("[ERROR] No valid action found, defaulting to GROW")
+                return GrowAction()
         # Return action with highest eval
         return best_action
