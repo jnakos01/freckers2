@@ -67,10 +67,10 @@ class InternalBoard:
                     self.board._validate_move_action(move_action)
                     all_actions.append(move_action)
 
-                    # If the move was a jump check for jump chains
-                    new_position = coord + direction
                     # If the move was a jump, check for jump chains
-                    if abs(new_position.r - coord.r) > 1 or abs(new_position.c - coord.c) > 1:
+                    is_jump, new_position = self.check_jump(coord, direction)
+                    # If the move was a jump, check for jump chains
+                    if is_jump:
                         # Returns all possible jump sequences if available
                         jump_sequences = self.get_jumps(new_position, move_action, possible_directions)
                         # If there are jump sequences, create actions and add them to the list
@@ -102,9 +102,7 @@ class InternalBoard:
         Returns a list of all possible jump sequences for the current player if a jump chain is possible
         """
         jumps = []
-
         visited = set()
-
         self.explore_jumps(new_position, [], original_action, visited, jumps, possible_directions)
 
         return jumps
@@ -138,7 +136,7 @@ class InternalBoard:
                         # Add the current direction to the chain
                         new_chain = current_chain + [direction]
 
-                    # Agrega todas las subcadenas posibles como acciones válidas
+                    # Add the new chain to the list of jumps
                     for i in range(1, len(new_chain) + 1):
                         jumps.append(tuple(new_chain[:i]))
 
@@ -271,4 +269,12 @@ class InternalBoard:
         # Return the difference enemy sum and player sum
         # As higher values are best for the player
         return enemy_sum - player_sum
+
+
+
+    def check_jump(self, original_coordinates: Coord, direction: Direction) -> tuple[bool, Coord]:
+        """
+        Checks if the action is a jump
+        """
+        IMPLEMENT TRY EXCEPT 
 
