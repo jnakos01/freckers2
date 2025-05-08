@@ -38,18 +38,27 @@ class InternalBoard:
 
 
 
-    def get_all_legal_actions(self) -> list[Action]:
+    def get_all_legal_actions(self, color: PlayerColor) -> list[Action]:
         """
         Returns all legal actions for the player whose turn it is.
         """
         # List to store all legal actions
-        all_actions = [GrowAction()]
+        all_actions = []
 
+        if color == self.player_color:
+            frog_coords = self.player_coords
+        else:
+            frog_coords = self.enemy_coords
+        # Get all legal directions once for the current player
+        possible_directions = self.get_possible_directions(self.board.turn_color)
 
         # Get all possible moves for each player frog
-        for coord in self.player_coords:
+        for coord in frog_coords:
+            if (color == PlayerColor.RED and coord.r == constants.BOARD_N - 1) or \
+                (color == PlayerColor.BLUE and coord.r == 0):
+                continue
+
             # Get all possible directions for the current frog
-            possible_directions = self.get_possible_directions(self.board.turn_color)
             # Create a move action for each possible direction if valid
             for direction in possible_directions:
                 try:
@@ -77,7 +86,12 @@ class InternalBoard:
                 except IllegalActionException:
                     pass
 
+        all_actions.append(GrowAction())
+
         # Return all legal actions
+        #print("[DEBUG] Acciones legales generadas:")
+        #for i, action in enumerate(all_actions):
+            #print(f"  {i + 1}: {action}")
         return all_actions
 
 
@@ -124,7 +138,10 @@ class InternalBoard:
                         # Add the current direction to the chain
                         new_chain = current_chain + [direction]
 
-                    jumps.append(tuple(new_chain))
+                    # Agrega todas las subcadenas posibles como acciones válidas
+                    for i in range(1, len(new_chain) + 1):
+                        jumps.append(tuple(new_chain[:i]))
+
 
                     # Explore further jumps from the new landing
                     self.explore_jumps(
@@ -182,6 +199,7 @@ class InternalBoard:
             self.board.undo_action()
             # Recalculate player and enemy coordinates
             self.player_coords, self.enemy_coords = self.find_frog_coordinates(self.player_color)
+
         except IndexError:
             raise ValueError("No actions to undo")
 

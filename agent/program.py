@@ -15,7 +15,7 @@ class Agent:
     """
 
     # Depth limit for the alpha-beta pruning algorithm
-    MAX_DEPTH = 2
+    MAX_DEPTH = 3
 
 
     def __init__(self, color: PlayerColor, **referee: dict):
@@ -41,9 +41,8 @@ class Agent:
         This method is called by the referee each time it is the agent's turn
         to take an action. It must always return an action object. 
         """
-
         # Call minimax with alpha-beta pruning here
-        # best_action = self.minmax_decision(self._board, self.MAX_DEPTH)
+        # best_action = self.minmax_decision(self._board, self.MAX_DEPTH)p
         best_action = self.alpha_beta_cutoff_search(self.MAX_DEPTH, **referee)
         return best_action
         """
@@ -107,7 +106,6 @@ class Agent:
 
         Credit to AIMA textbook for the algorithm structure.
         """
-
         # Functions required for alpha-beta pruning
         def max_value(alpha, beta, depth, depth_counter):
             # Stop searching if we reach cutoff depth or terminal state
@@ -118,11 +116,11 @@ class Agent:
             # (Staring with the worst possible value)
             v = -np.inf
             # Look through all legal actions
-            for a in self._board.get_all_legal_actions():
+            for a in self._board.get_all_legal_actions(self._color):
                 # Apply action
                 self._board.update(a)
                 # Call min_value function
-                v = max(v, min_value(alpha, beta, depth, depth_counter))
+                v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
@@ -142,7 +140,7 @@ class Agent:
             v = np.inf
 
             # Look through all legal actions
-            for a in self._board.get_all_legal_actions():
+            for a in self._board.get_all_legal_actions(self._color.opponent):
                 # Apply action
                 self._board.update(a)
                 # Call max_value function
@@ -179,7 +177,7 @@ class Agent:
 
 
         # Look through all possible actions
-        for action in self._board.get_all_legal_actions():
+        for action in self._board.get_all_legal_actions(self._color):
             # Apply action
             self._board.update(action)
             # Initialise depth counter for terminal state situation
@@ -204,6 +202,8 @@ class Agent:
             if v > best_score:
                 best_score = v
                 best_action = action
-
+            if best_action is None:
+                print("[ERROR] No valid action found, defaulting to GROW")
+                return GrowAction()
         # Return action with highest eval
         return best_action
