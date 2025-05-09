@@ -1,8 +1,6 @@
 from typing import Any
-
 from referee.game import PlayerColor, Coord, Direction, \
     Action, MoveAction, GrowAction, GameBegin, Board, IllegalActionException, constants
-
 import numpy as np
 
 
@@ -10,91 +8,86 @@ class InternalBoard:
     def __init__(self, player_color: PlayerColor):
         self.board = Board()
         self.player_coords, self.enemy_coords = self.find_frog_coordinates(player_color)
-        # Which player are we playing as
         self.player_color = player_color
 
-
     def find_frog_coordinates(self, player_color: PlayerColor):
-        """
-        Finds and returns the coordinates of the frogs for both players as two separate lists.
-        With the player's frogs being first
-        """
+        # Find all frog positions for both RED and BLUE players
         red_frog_coords = []
         blue_frog_coords = []
-        # Stores all player frog coordinates
         for coord, cell_state in self.board._state.items():
             if cell_state.state == PlayerColor.RED:
                 red_frog_coords.append(coord)
             elif cell_state.state == PlayerColor.BLUE:
-                    blue_frog_coords.append(coord)
+                blue_frog_coords.append(coord)
 
-        if player_color == PlayerColor.RED:
-            return red_frog_coords, blue_frog_coords
-
-        else:
-            # If the player is blue, return the coordinates in reverse order
-            return blue_frog_coords, red_frog_coords
-
-
-
+        return (red_frog_coords, blue_frog_coords) if player_color == PlayerColor.RED else (blue_frog_coords, red_frog_coords)
 
     def get_all_legal_actions(self, color: PlayerColor) -> list[Action]:
         """
         Returns all legal actions for the player whose turn it is.
         """
-        # List to store all legal actions
         all_actions = []
 
-        if color == self.player_color:
-            frog_coords = self.player_coords
-        else:
-            frog_coords = self.enemy_coords
-        # Get all legal directions once for the current player
-        possible_directions = self.get_possible_directions(self.board.turn_color)
+        frog_coords = self.player_coords if color == self.player_color else self.enemy_coords
+        possible_directions = self.get_possible_directions(self.player_color)
 
-        # Get all possible moves for each player frog
         for coord in frog_coords:
+            # Skip if frog is already in the final row
             if (color == PlayerColor.RED and coord.r == constants.BOARD_N - 1) or \
-                (color == PlayerColor.BLUE and coord.r == 0):
+               (color == PlayerColor.BLUE and coord.r == 0):
                 continue
 
-            # Get all possible directions for the current frog
-            # Create a move action for each possible direction if valid
             for direction in possible_directions:
                 try:
-                    # Find new position for single step move
                     move_action = MoveAction(coord, (direction,))
                     self.board._validate_move_action(move_action)
                     all_actions.append(move_action)
 
-                    # If the move was a jump, check for jump chains
-                    is_jump, new_position = self.check_jump(coord, direction)
-                    # If the move was a jump, check for jump chains
-                    if is_jump:
-                        # Returns all possible jump sequences if available
-                        jump_sequences = self.get_jumps(new_position, move_action, possible_directions)
-                        # If there are jump sequences, create actions and add them to the list
-                        if len(jump_sequences) > 0:
-                            # Add all jump sequences to the list of actions
-                            for jump_sequence in jump_sequences:
-                                jump_action = MoveAction(coord, tuple(jump_sequence))
-                                # Validate the jump action
+                    # Check for potential jump (coord + direction + direction)
+                    try:
+                        over = coord + direction
+                        landing = over + direction
+                    except ValueError:
+                        continue  # Skip if out of bounds
+
+                    # If coordinates are not frog and lily pad, skip
+                    if self.board[over].state not in [PlayerColor.RED, PlayerColor.BLUE]:
+                        continue
+                    if self.board[landing].state != "LilyPad":
+                        continue
+
+                    # Add this initial jump to the action list
+                    jump_action = MoveAction(coord, (direction,))
+                    try:
+                        self.board._validate_move_action(jump_action)
+                        all_actions.append(jump_action)
+                    except IllegalActionException:
+                        continue
+
+                    # If it's a jump (distance > 1), search for jump chains
+                    if abs(landing.r - coord.r) > 1 or abs(landing.c - coord.c) > 1:
+                        jump_sequences = self.get_jumps(landing, move_action, possible_directions)
+                        for jump_sequence in jump_sequences:
+                            jump_action = MoveAction(coord, tuple(jump_sequence))
+                            try:
                                 self.board._validate_move_action(jump_action)
                                 all_actions.append(jump_action)
+                            except IllegalActionException:
+                                continue
 
-                    # Skip if action is illegal
                 except IllegalActionException:
-                    pass
+                    continue
 
+        # Add GROW action at the end
         all_actions.append(GrowAction())
 
-        # Return all legal actions
-        #print("[DEBUG] Acciones legales generadas:")
-        #for i, action in enumerate(all_actions):
-            #print(f"  {i + 1}: {action}")
+        # Debug print for jump actions
+        """for action in all_actions:
+            if isinstance(action, MoveAction) and len(action.directions) > 1:
+                print(f"[DEBUG] Legal jump actions for {color.name}:")
+                print(f"  - {action}")"""
+
         return all_actions
-
-
 
     def get_jumps(self, new_position: Coord, original_action: MoveAction,
                   possible_directions) -> list[tuple[Direction]]:
@@ -103,53 +96,63 @@ class InternalBoard:
         """
         jumps = []
         visited = set()
-        self.explore_jumps(new_position, [], original_action, visited, jumps, possible_directions)
+        valid_dirs = []
 
-        return jumps
-
-
-    # Recursively explores all possible jump sequences for the current player
-    def explore_jumps(self, coord: Coord, current_chain: list[Direction], original_action: MoveAction,
-        visited: set[Coord], jumps: list[tuple[Direction, ...]], possible_directions: list[Direction] = None,
-        ) -> None:
-
-        for direction in possible_directions:
+        for d in possible_directions:
             try:
-                # Create a jump move
-                over = coord + direction
-                landing = over + direction
-
-                # Avoid cycles
-                if landing in visited:
+                if not self._coord_within_bounds(new_position + d):
                     continue
+                over = new_position + d
 
-                # Check if the jump is valid
-                if self.board._cell_occupied_by_player(over) and self.board._cell_empty(landing):
-                    # Add the landing to visited to prevent revisiting
-                    visited.add(landing)
+                if not self._coord_within_bounds(over + d):
+                    continue
+                landing = over + d
 
-                    # We have a jump, if the chain is empty we had our first jump
-                    if not current_chain:
-                        # Add the first jump to the chain
-                        new_chain = list(original_action.directions) + [direction]
-                    else:
-                        # Add the current direction to the chain
-                        new_chain = current_chain + [direction]
-
-                    # Add the new chain to the list of jumps
-                    for i in range(1, len(new_chain) + 1):
-                        jumps.append(tuple(new_chain[:i]))
-
-
-                    # Explore further jumps from the new landing
-                    self.explore_jumps(
-                        landing, new_chain, original_action, visited.copy(), jumps, possible_directions
-                    )
-
-            except IllegalActionException:
+                valid_dirs.append(d)
+            except Exception:
                 continue
 
+        # Start recursive jump exploration
+        self.explore_jumps(new_position, [], original_action, visited, jumps, valid_dirs)
+        return jumps
 
+    def explore_jumps(self, coord: Coord, current_chain: list[Direction], original_action: MoveAction,
+        visited: set[Coord], jumps: list[tuple[Direction, ...]], possible_directions: list[Direction]) -> None:
+        for direction in possible_directions:
+            try:
+                over = coord + direction
+                landing = over + direction
+            except ValueError:
+                continue
+
+            if not self._coord_within_bounds(over) or not self._coord_within_bounds(landing):
+                continue
+
+            # Valid jump: over has a frog (either color), landing has lily pad
+            if self.board[over].state not in [PlayerColor.RED, PlayerColor.BLUE]:
+                continue
+
+            if self.board[landing].state != "LilyPad":
+                continue
+
+            # Avoid cycles
+            if landing in visited:
+                continue
+
+            visited.add(landing)
+
+            new_chain = (
+                list(original_action.directions) + [direction]
+                if not current_chain
+                else current_chain + [direction]
+            )
+
+            jumps.append(tuple(new_chain))
+
+            # Recursively search for more jumps
+            self.explore_jumps(
+                landing, new_chain, original_action, visited.copy(), jumps, possible_directions
+            )
 
     def get_possible_directions(self, player_color: PlayerColor) -> list[Direction]:
         """
@@ -159,59 +162,39 @@ class InternalBoard:
         possible_directions = []
         for direction in Direction:
             try:
-                # Check if the direction is legal for the player colour
                 self.board._assert_direction_legal(direction, player_color)
                 possible_directions.append(direction)
-            # Skip moves out of the board or illegal moves
             except IllegalActionException:
                 continue
         return possible_directions
-
 
     def update(self, action: Action) -> None:
         """
         Updates the internal board with the action played by the player.
         """
-        match action:
-            case MoveAction():
-                # Update the board with the move
-                try:
-                    self.board.apply_action(action)
-                except IllegalActionException:
-                    raise ValueError("Illegal action encountered during apply_action")
-            # Update the board with the Grow action
-            case GrowAction():
-                try:
-                    self.board.apply_action(action)
-                except IllegalActionException:
-                    raise ValueError("Illegal action encountered during apply_action")
-        # Recalculate player and enemy coordinates
+        try:
+            self.board.apply_action(action)
+        except IllegalActionException:
+            raise ValueError("Illegal action encountered during apply_action")
+
         self.player_coords, self.enemy_coords = self.find_frog_coordinates(self.player_color)
-
-
 
     def undo_action(self):
         """ Undoes the previous action to the board """
         try:
-            # Undo the last action applied to the board
             self.board.undo_action()
-            # Recalculate player and enemy coordinates
             self.player_coords, self.enemy_coords = self.find_frog_coordinates(self.player_color)
-
         except IndexError:
             raise ValueError("No actions to undo")
 
-
+    def _coord_within_bounds(self, coord: Coord) -> bool:
+        return 0 <= coord.r < constants.BOARD_N and 0 <= coord.c < constants.BOARD_N
 
     def terminal_state(self) -> bool:
         """
         Returns true if the game is over, false if the game is not over at the board's state.
         """
-        if self.board.game_over:
-            return True
-        else:
-            return False
-
+        return self.board.game_over
 
     def eval(self) -> float:
         """
@@ -219,62 +202,152 @@ class InternalBoard:
         negative if the player is losing.
 
         Components:
-        1. Sum of vertical distance to end of board for each player frog - that of the enemies
+        1. Vertical distances to the goal.
+        2. Bonus for dominant positions.
+        3. Penalty for frogs left behind.
+        4. Penalty for blocked frogs.
         """
-
-        # First set eval to inf if either player has won
         if self.terminal_state():
             if self.board.winner_color == self.player_color:
                 return np.inf
             elif self.board.winner_color == self.player_color.opponent:
                 return -np.inf
 
-        return self.vertical_distances()
+        score = 0
+
+        # Vertical distance component
+        score += 1.0 * self.vertical_distances()
+
+        # Bonus for dominant positions
+        score += 2.0 * self.count_dominant_positions(self.player_coords)
+
+        # Penalty for frogs left behind
+        score += 1.0 * self.count_left_behind(self.player_coords)
+
+        # Penalty for blocked frogs
+        score -= 1.5 * self.count_blocked_frogs(self.player_coords)
+
+        return score
 
 
     def vertical_distances(self):
         """
         Returns the first evaluation component:
         The sum of the distances to the end of the board for each player frog
-        - that of the enemies.
+        minus that of the enemies.
         """
         player_sum = 0
         enemy_sum = 0
 
-        # Component 1
-        # Calculate the distance to the end of the board for each player frog
         if self.player_color == PlayerColor.RED:
             for p_coord in self.player_coords:
-                # Distance to end of board (-7)
                 distance = abs(p_coord.r - (constants.BOARD_N - 1))
                 player_sum += distance
-            # Sum up enemy frog distances (blue)
             for e_coord in self.enemy_coords:
-                # Distance to other end of board
                 distance = abs(e_coord.r)
                 enemy_sum += distance
 
         elif self.player_color == PlayerColor.BLUE:
             for p_coord in self.player_coords:
-                # Distance to other end of board (-7)
                 distance = abs(p_coord.r)
                 player_sum += distance
-            # Sum up enemy frog distances (red)
             for e_coord in self.enemy_coords:
-                # Distance to end of board
                 distance = abs(e_coord.r - (constants.BOARD_N - 1))
                 enemy_sum += distance
 
-
-        # Return the difference enemy sum and player sum
-        # As higher values are best for the player
         return enemy_sum - player_sum
 
+    def count_blocked_frogs(self, coords):
+        # Count how many frogs have no legal moves
+        count = 0
+        directions = self.get_possible_directions(self.board.turn_color)
+        for coord in coords:
+            blocked = True
+            for d in directions:
+                try:
+                    move = MoveAction(coord, (d,))
+                    self.board._validate_move_action(move)
+                    blocked = False
+                    break
+                except:
+                    continue
+            if blocked:
+                count += 1
+        return count
 
+    # Uncomment the following methods if needed later
 
-    def check_jump(self, original_coordinates: Coord, direction: Direction) -> tuple[bool, Coord]:
+    def count_dominant_positions(self, coords):
+        # Heuristic bonus for frogs close to the goal row
+        score = 0
+        N = constants.BOARD_N
+
+        for coord in coords:
+            if self.player_color == PlayerColor.RED:
+                if coord.r == N - 1:
+                    score += 3
+                elif coord.r == N - 2:
+                    score += 2
+                elif coord.r == N - 3:
+                    score += 1
+            elif self.player_color == PlayerColor.BLUE:
+                if coord.r == 0:
+                    score += 3
+                elif coord.r == 1:
+                    score += 2
+                elif coord.r == 2:
+                    score += 1
+
+        return score
+
+    def count_left_behind(self, coords):
+        # Penalty for frogs that remain far from the goal row
+        score = 0
+        N = constants.BOARD_N
+
+        for coord in coords:
+            if self.player_color == PlayerColor.RED:
+                if coord.r == 0:
+                    score -= 3
+                elif coord.r == 1:
+                    score -= 2
+                elif coord.r == 2:
+                    score -= 1
+            elif self.player_color == PlayerColor.BLUE:
+                if coord.r == N - 1:
+                    score -= 3
+                elif coord.r == N - 2:
+                    score -= 2
+                elif coord.r == N - 3:
+                    score -= 1
+
+        return score
+    
+    def count_jump_opportunities(self, coords: list[Coord], color: PlayerColor) -> int:
         """
-        Checks if the action is a jump
+        Returns the number of positions where a frog can initiate at least one jump.
         """
-        IMPLEMENT TRY EXCEPT 
+        jump_count = 0
+        possible_directions = self.get_possible_directions(color)
+
+        for coord in coords:
+            for direction in possible_directions:
+                try:
+                    over = coord + direction
+                    landing = over + direction
+                except ValueError:
+                    continue
+
+                if not self._coord_within_bounds(over) or not self._coord_within_bounds(landing):
+                    continue
+
+                # Can jump if 'over' has any frog and 'landing' is a lily pad
+                if self.board[over].state in [PlayerColor.RED, PlayerColor.BLUE] and \
+                self.board[landing].state == "LilyPad":
+                    jump_count += 1
+                    break  # Count only one opportunity per frog
+        return jump_count
+
+    
+
 
