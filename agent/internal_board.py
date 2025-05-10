@@ -51,7 +51,7 @@ class InternalBoard:
                         continue  # Skip if out of bounds
 
                     # If coordinates are not frog and lily pad, skip
-                    if self.board[over].state not in [PlayerColor.RED, PlayerColor.BLUE]:
+                    if self.board[over].state not in [PlayerColor.RED, PlayerColor.BLUE] and self.board[landing].state != "LilyPad":
                         continue
                     if self.board[landing].state != "LilyPad":
                         continue
@@ -219,13 +219,11 @@ class InternalBoard:
         score += 1.0 * self.vertical_distances()
 
         # Bonus for dominant positions
-        score += 2.0 * self.count_dominant_positions(self.player_coords)
+        score += 2.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
 
         # Penalty for frogs left behind
-        score += 1.0 * self.count_left_behind(self.player_coords)
+        score += 1.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
 
-        # Penalty for blocked frogs
-        score -= 1.5 * self.count_blocked_frogs(self.player_coords)
 
         return score
 
@@ -257,32 +255,49 @@ class InternalBoard:
 
         return enemy_sum - player_sum
 
-    def count_blocked_frogs(self, coords):
-        # Count how many frogs have no legal moves
-        count = 0
-        directions = self.get_possible_directions(self.board.turn_color)
-        for coord in coords:
+    def count_blocked_frogs(self, player_coords, enemy_coords):
+        # Net count of how many frogs have no legal moves. (Enemy - player counts)
+        score = 0
+        player_directions = self.get_possible_directions(self.board.turn_color)
+        enemy_directions = self.get_possible_directions(self.board.turn_color.opponent)
+        # Count blocked player frogs
+        for coord in player_coords:
             blocked = True
-            for d in directions:
+            for d in player_directions:
                 try:
                     move = MoveAction(coord, (d,))
                     self.board._validate_move_action(move)
                     blocked = False
                     break
-                except:
+                except IllegalActionException:
                     continue
             if blocked:
-                count += 1
-        return count
+                score -= 1
+
+
+        for coord in enemy_coords:
+            blocked = True
+            for d in enemy_directions:
+                try:
+                    move = MoveAction(coord, (d,))
+                    self.board._validate_move_action(move)
+                    blocked = False
+                    break
+                except IllegalActionException:
+                    continue
+            if blocked:
+                score += 1
+
+        return score
 
     # Uncomment the following methods if needed later
 
-    def count_dominant_positions(self, coords):
+    def count_dominant_positions(self, player_coords, enemy_coords):
         # Heuristic bonus for frogs close to the goal row
         score = 0
         N = constants.BOARD_N
 
-        for coord in coords:
+        for coord in player_coords:
             if self.player_color == PlayerColor.RED:
                 if coord.r == N - 1:
                     score += 3
@@ -298,14 +313,30 @@ class InternalBoard:
                 elif coord.r == 2:
                     score += 1
 
+        for coord in enemy_coords:
+            if self.player_color == PlayerColor.BLUE:
+                if coord.r == N - 1:
+                    score -= 3
+                elif coord.r == N - 2:
+                    score -= 2
+                elif coord.r == N - 3:
+                    score -= 1
+            elif self.player_color == PlayerColor.RED:
+                if coord.r == 0:
+                    score -= 3
+                elif coord.r == 1:
+                    score -= 2
+                elif coord.r == 2:
+                    score -= 1
+
         return score
 
-    def count_left_behind(self, coords):
+    def count_left_behind(self, player_coords, enemy_coords):
         # Penalty for frogs that remain far from the goal row
         score = 0
         N = constants.BOARD_N
 
-        for coord in coords:
+        for coord in player_coords:
             if self.player_color == PlayerColor.RED:
                 if coord.r == 0:
                     score -= 3
@@ -320,6 +351,24 @@ class InternalBoard:
                     score -= 2
                 elif coord.r == N - 3:
                     score -= 1
+
+        for coord in enemy_coords:
+            if self.player_color == PlayerColor.BLUE:
+                if coord.r == 0:
+                    score += 3
+                elif coord.r == 1:
+                    score += 2
+                elif coord.r == 2:
+                    score += 1
+            elif self.player_color == PlayerColor.RED:
+                if coord.r == N - 1:
+                    score += 3
+                elif coord.r == N - 2:
+                    score += 2
+                elif coord.r == N - 3:
+                    score += 1
+
+
 
         return score
     
