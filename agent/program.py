@@ -153,7 +153,7 @@ class Agent:
                 a: self._board.movement_progress_heuristic(a, self._color.opponent)
                 for a in legal_actions
             }
-            sorted_actions = sorted(legal_actions, key=lambda a: action_scores[a], reverse=False)
+            sorted_actions = sorted(legal_actions, key=lambda a: action_scores[a], reverse=True)
 
             for a in sorted_actions:
                 # Apply action
