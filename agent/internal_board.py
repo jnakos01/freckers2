@@ -219,10 +219,10 @@ class InternalBoard:
         score += 1.0 * self.vertical_distances()
 
         # Bonus for dominant positions
-        score += 2.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
+        score += 3.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
 
         # Penalty for frogs left behind
-        score += 3.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
+        score += 2.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
 
         # Blocked frogs
         #score += 1.0 * self.count_blocked_frogs(self.player_coords, self.enemy_coords)
@@ -449,5 +449,5 @@ class InternalBoard:
         else:
             delta = start.r - current.r
 
-        return delta if delta > 0 else -1
+        return delta if delta > 2 else 0
 

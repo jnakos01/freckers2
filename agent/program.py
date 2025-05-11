@@ -127,9 +127,10 @@ class Agent:
                 # Apply action
                 self._board.update(a)
                 #print(f"{a} → {action_scores[a]}")
-                action_bonus = action_scores[a] * 0.5
+                action_bonus = action_scores[a] * 0.8
                 # Call min_value function
                 v = max(v, min_value(alpha, beta, depth + 1, depth_counter) + action_bonus)
+                #v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
