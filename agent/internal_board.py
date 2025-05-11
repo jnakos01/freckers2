@@ -29,7 +29,7 @@ class InternalBoard:
         all_actions = []
 
         frog_coords = self.player_coords if color == self.player_color else self.enemy_coords
-        possible_directions = self.get_possible_directions(self.player_color)
+        possible_directions = self.get_possible_directions(self.board._turn_color)
 
         for coord in frog_coords:
             # Skip if frog is already in the final row
@@ -43,30 +43,12 @@ class InternalBoard:
                     self.board._validate_move_action(move_action)
                     all_actions.append(move_action)
 
-                    # Check for potential jump (coord + direction + direction)
-                    try:
-                        over = coord + direction
-                        landing = over + direction
-                    except ValueError:
-                        continue  # Skip if out of bounds
-
-                    # If coordinates are not frog and lily pad, skip
-                    if self.board[over].state not in [PlayerColor.RED, PlayerColor.BLUE] and self.board[landing].state != "LilyPad":
-                        continue
-                    if self.board[landing].state != "LilyPad":
-                        continue
-
-                    # Add this initial jump to the action list
-                    jump_action = MoveAction(coord, (direction,))
-                    try:
-                        self.board._validate_move_action(jump_action)
-                        all_actions.append(jump_action)
-                    except IllegalActionException:
-                        continue
+                    # Check if it was a jump or normal move
+                    new_coords = self.board._resolve_move_destination(move_action)
 
                     # If it's a jump (distance > 1), search for jump chains
-                    if abs(landing.r - coord.r) > 1 or abs(landing.c - coord.c) > 1:
-                        jump_sequences = self.get_jumps(landing, move_action, possible_directions)
+                    if abs(new_coords.r - coord.r) > 1 or abs(new_coords.c - coord.c) > 1:
+                        jump_sequences = self.get_jumps(new_coords, move_action, possible_directions)
                         for jump_sequence in jump_sequences:
                             jump_action = MoveAction(coord, tuple(jump_sequence))
                             try:
@@ -222,7 +204,7 @@ class InternalBoard:
         score += 2.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
 
         # Penalty for frogs left behind
-        score += 1.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
+        score += 3.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
 
 
         return score
@@ -260,31 +242,35 @@ class InternalBoard:
         score = 0
         player_directions = self.get_possible_directions(self.board.turn_color)
         enemy_directions = self.get_possible_directions(self.board.turn_color.opponent)
+
+        def is_blocked_frog(coord, directions):
+            for d in directions:
+                try:
+                    over = coord + d
+                    landing = over + d
+                    if self._coord_within_bounds(over) and self._coord_within_bounds(landing):
+                        # Jump Move
+                        if self.board[over].state in [PlayerColor.RED, PlayerColor.BLUE] and \
+                        self.board[landing].state == "LilyPad":
+                            return False
+
+                    # Normal Move
+                    if self._coord_within_bounds(over):
+                        if self.board[over].state == "LilyPad":
+                            return False
+                except ValueError:
+                    continue
+            return True
+
         # Count blocked player frogs
         for coord in player_coords:
-            blocked = True
-            for d in player_directions:
-                try:
-                    move = MoveAction(coord, (d,))
-                    self.board._validate_move_action(move)
-                    blocked = False
-                    break
-                except IllegalActionException:
-                    continue
+            blocked = is_blocked_frog(coord, player_directions)
             if blocked:
                 score -= 1
 
-
+        # Count blocked enemy frogs
         for coord in enemy_coords:
-            blocked = True
-            for d in enemy_directions:
-                try:
-                    move = MoveAction(coord, (d,))
-                    self.board._validate_move_action(move)
-                    blocked = False
-                    break
-                except IllegalActionException:
-                    continue
+            blocked = is_blocked_frog(coord, enemy_directions)
             if blocked:
                 score += 1
 
@@ -397,6 +383,25 @@ class InternalBoard:
                     break  # Count only one opportunity per frog
         return jump_count
 
-    
+
+
+    # DON'T USE YET AS CAN PROHIBIT FORWARD PROGRESS
+    def max_vert_distance_between_frogs(self, player_coords: list[Coord], enemy_coords: list[Coord]) -> int:
+        """
+        Returns the maximum vertical distance between any two enemy frogs
+        - that of the maximum vertical distance between any two player frogs.
+        """
+
+        player_min = min(coord.r for coord in player_coords)
+        player_max = max(coord.r for coord in player_coords)
+        player_dist = abs(player_max - player_min)
+
+        enemy_min = min(coord.r for coord in enemy_coords)
+        enemy_max = max(coord.r for coord in enemy_coords)
+        enemy_dist = abs(enemy_max - enemy_min)
+        return enemy_dist - player_dist
+
+
+
 
 
