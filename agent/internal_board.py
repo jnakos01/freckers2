@@ -222,8 +222,13 @@ class InternalBoard:
         score += 2.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
 
         # Penalty for frogs left behind
-        score += 1.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
+        score += 3.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
 
+        # Blocked frogs
+        #score += 1.0 * self.count_blocked_frogs(self.player_coords, self.enemy_coords)
+
+        # jump oportunities
+        #score += 1.0 * self.count_jump_opportunities(self.player_coords, self.enemy_coords)
 
         return score
 
@@ -255,12 +260,21 @@ class InternalBoard:
 
         return enemy_sum - player_sum
 
-    def count_blocked_frogs(self, player_coords, enemy_coords):
-        # Net count of how many frogs have no legal moves. (Enemy - player counts)
+    def count_blocked_frogs(self, player_coords, enemy_coords) -> int:
+        """
+        Returns net count of blocked frogs: (enemy blocked) - (player blocked),
+        ignoring purely lateral moves (Left, Right).
+        """
         score = 0
-        player_directions = self.get_possible_directions(self.board.turn_color)
-        enemy_directions = self.get_possible_directions(self.board.turn_color.opponent)
-        # Count blocked player frogs
+
+        # Filtrar solo direcciones que no sean izquierda o derecha
+        def filter_directions(directions):
+            return [d for d in directions if d not in [Direction.Left, Direction.Right]]
+
+        player_directions = filter_directions(self.get_possible_directions(self.board.turn_color))
+        enemy_directions = filter_directions(self.get_possible_directions(self.board.turn_color.opponent))
+
+        # Player frogs
         for coord in player_coords:
             blocked = True
             for d in player_directions:
@@ -274,7 +288,7 @@ class InternalBoard:
             if blocked:
                 score -= 1
 
-
+        # Enemy frogs
         for coord in enemy_coords:
             blocked = True
             for d in enemy_directions:
@@ -289,6 +303,8 @@ class InternalBoard:
                 score += 1
 
         return score
+
+
 
     # Uncomment the following methods if needed later
 
@@ -372,31 +388,66 @@ class InternalBoard:
 
         return score
     
-    def count_jump_opportunities(self, coords: list[Coord], color: PlayerColor) -> int:
+    def count_jump_opportunities(self, player_coords, enemy_coords) -> int:
         """
-        Returns the number of positions where a frog can initiate at least one jump.
+        Returns the difference in jump opportunities:
+        (player jump over enemy frogs) - (enemy jump over player frogs)
         """
-        jump_count = 0
-        possible_directions = self.get_possible_directions(color)
+        score = 0
 
-        for coord in coords:
-            for direction in possible_directions:
-                try:
-                    over = coord + direction
-                    landing = over + direction
-                except ValueError:
-                    continue
+        player_color = self.player_color
+        enemy_color = player_color.opponent
 
-                if not self._coord_within_bounds(over) or not self._coord_within_bounds(landing):
-                    continue
+        player_dirs = self.get_possible_directions(player_color)
+        enemy_dirs = self.get_possible_directions(enemy_color)
 
-                # Can jump if 'over' has any frog and 'landing' is a lily pad
-                if self.board[over].state in [PlayerColor.RED, PlayerColor.BLUE] and \
-                self.board[landing].state == "LilyPad":
-                    jump_count += 1
-                    break  # Count only one opportunity per frog
-        return jump_count
+        # Helper to count valid jumps over enemy frogs
+        def count_valid_jumps(coords, dirs, target_color):
+            count = 0
+            for coord in coords:
+                for d in dirs:
+                    try:
+                        over = coord + d
+                        landing = over + d
+                    except ValueError:
+                        continue
 
-    
+                    if not self._coord_within_bounds(over) or not self._coord_within_bounds(landing):
+                        continue
 
+                    if self.board[over].state == target_color and self.board[landing].state == "LilyPad":
+                        count += 1
+                        break  # one opportunity per frog
+            return count
+
+        score += count_valid_jumps(player_coords, player_dirs, enemy_color)
+        score -= count_valid_jumps(enemy_coords, enemy_dirs, player_color)
+
+        return score
+        
+    def movement_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
+        if not isinstance(action, MoveAction):
+            return 0  # Neutral for GROW or others
+
+        if color is None:
+            color = self.player_color
+
+        start = action.coord
+        current = start
+
+        for d in action.directions:
+            if len(action.directions) == 1:
+                # Movimiento simple: solo avanzar una vez
+                current = current + d
+            else:
+                # Salto: avanzar dos veces en esa dirección
+                current = current + d + d
+
+        # Calcular avance vertical neto
+        if color == PlayerColor.RED:
+            delta = current.r - start.r
+        else:
+            delta = start.r - current.r
+
+        return delta if delta > 0 else -1
 
