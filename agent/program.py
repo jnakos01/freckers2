@@ -218,7 +218,15 @@ class Agent:
                 best_score = v
                 best_action = action
             if best_action is None:
-                print("[ERROR] No valid action found, defaulting to GROW")
+                legal_actions = self._board.get_all_legal_actions(self._color)
+                move_actions = [a for a in legal_actions if isinstance(a, MoveAction)]
+                if move_actions:
+                    best_fallback = max(
+                        move_actions,
+                        key=lambda a: self._board.forward_progress_heuristic(a, self._color)
+                    )
+                    if self._board.forward_progress_heuristic(best_fallback, self._color) > 0:
+                        return best_fallback
                 return GrowAction()
         # Return action with highest eval
         return best_action

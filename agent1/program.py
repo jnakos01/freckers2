@@ -116,11 +116,15 @@ class Agent:
             # (Staring with the worst possible value)
             v = -np.inf
             # Look through all legal actions
-            for a in self._board.get_all_legal_actions(self._color):
+            legal_actions = self._board.get_all_legal_actions(self._color)
+
+            for a in legal_actions:
                 # Apply action
                 self._board.update(a)
+
                 # Call min_value function
                 v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
+                #v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
@@ -138,9 +142,9 @@ class Agent:
 
             # Best value for min at this node so far
             v = np.inf
+            legal_actions = self._board.get_all_legal_actions(self._color.opponent)
 
-            # Look through all legal actions
-            for a in self._board.get_all_legal_actions(self._color.opponent):
+            for a in legal_actions:
                 # Apply action
                 self._board.update(a)
                 # Call max_value function
@@ -203,7 +207,15 @@ class Agent:
                 best_score = v
                 best_action = action
             if best_action is None:
-                print("[ERROR] No valid action found, defaulting to GROW")
+                legal_actions = self._board.get_all_legal_actions(self._color)
+                move_actions = [a for a in legal_actions if isinstance(a, MoveAction)]
+                if move_actions:
+                    best_fallback = max(
+                        move_actions,
+                        key=lambda a: self._board.forward_progress_heuristic(a, self._color)
+                    )
+                    if self._board.forward_progress_heuristic(best_fallback, self._color) > 0:
+                        return best_fallback
                 return GrowAction()
         # Return action with highest eval
         return best_action

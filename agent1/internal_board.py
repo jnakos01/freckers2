@@ -236,6 +236,31 @@ class InternalBoard:
                 enemy_sum += distance
 
         return enemy_sum - player_sum
+    
+    def forward_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
+        if not isinstance(action, MoveAction):
+            return 0 
+
+        if color is None:
+            color = self.player_color
+
+        start = action.coord
+        current = start
+
+        for d in action.directions:
+            current = current + d if len(action.directions) == 1 else current + d + d
+
+        delta = current.r - start.r if color == PlayerColor.RED else start.r - current.r
+
+        if delta <= 0:
+            return 0
+
+        N = constants.BOARD_N
+        if (color == PlayerColor.RED and start.r >= N - 2) or \
+        (color == PlayerColor.BLUE and start.r <= 1):
+            return 0
+
+        return 1 
 
     def count_blocked_frogs(self, player_coords, enemy_coords):
         # Net count of how many frogs have no legal moves. (Enemy - player counts)
