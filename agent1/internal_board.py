@@ -29,7 +29,7 @@ class InternalBoard:
         all_actions = []
 
         frog_coords = self.player_coords if color == self.player_color else self.enemy_coords
-        possible_directions = self.get_possible_directions(self.player_color)
+        possible_directions = self.get_possible_directions(self.board._turn_color)
 
         for coord in frog_coords:
             # Skip if frog is already in the final row
@@ -43,19 +43,12 @@ class InternalBoard:
                     self.board._validate_move_action(move_action)
                     all_actions.append(move_action)
 
-                    # Check for potential jump (coord + direction + direction)
-                    try:
-                        over = coord + direction
-                        landing = over + direction
-                    except ValueError:
-                        continue  # Skip if out of bounds
-
-                    if not self._coord_within_bounds(over) or not self._coord_within_bounds(landing):
-                        continue
+                    # Check if it was a jump or normal move
+                    new_coords = self.board._resolve_move_destination(move_action)
 
                     # If it's a jump (distance > 1), search for jump chains
-                    if abs(landing.r - coord.r) > 1 or abs(landing.c - coord.c) > 1:
-                        jump_sequences = self.get_jumps(landing, move_action, possible_directions)
+                    if abs(new_coords.r - coord.r) > 1 or abs(new_coords.c - coord.c) > 1:
+                        jump_sequences = self.get_jumps(new_coords, move_action, possible_directions)
                         for jump_sequence in jump_sequences:
                             jump_action = MoveAction(coord, tuple(jump_sequence))
                             try:
@@ -80,6 +73,9 @@ class InternalBoard:
 
     def get_jumps(self, new_position: Coord, original_action: MoveAction,
                   possible_directions) -> list[tuple[Direction]]:
+        """
+        Returns a list of all possible jump sequences for the current player if a jump chain is possible
+        """
         jumps = []
         visited = set()
         valid_dirs = []
@@ -141,7 +137,10 @@ class InternalBoard:
             )
 
     def get_possible_directions(self, player_color: PlayerColor) -> list[Direction]:
-        # Return only legal directions for the given player color
+        """
+        Returns a list of all legal directions for the player whose turn it is.
+        Does not validate the action.
+        """
         possible_directions = []
         for direction in Direction:
             try:
@@ -152,7 +151,9 @@ class InternalBoard:
         return possible_directions
 
     def update(self, action: Action) -> None:
-        # Apply action and update frog positions
+        """
+        Updates the internal board with the action played by the player.
+        """
         try:
             self.board.apply_action(action)
         except IllegalActionException:
@@ -161,7 +162,7 @@ class InternalBoard:
         self.player_coords, self.enemy_coords = self.find_frog_coordinates(self.player_color)
 
     def undo_action(self):
-        # Undo last action and restore positions
+        """ Undoes the previous action to the board """
         try:
             self.board.undo_action()
             self.player_coords, self.enemy_coords = self.find_frog_coordinates(self.player_color)
@@ -172,8 +173,10 @@ class InternalBoard:
         return 0 <= coord.r < constants.BOARD_N and 0 <= coord.c < constants.BOARD_N
 
     def terminal_state(self) -> bool:
+        """
+        Returns true if the game is over, false if the game is not over at the board's state.
+        """
         return self.board.game_over
-
 
     def eval(self) -> float:
         """
@@ -181,54 +184,219 @@ class InternalBoard:
         negative if the player is losing.
 
         Components:
-        1. Sum of vertical distance to end of board for each player frog - that of the enemies
+        1. Vertical distances to the goal.
+        2. Bonus for dominant positions.
+        3. Penalty for frogs left behind.
+        4. Penalty for blocked frogs.
         """
-
-        # First set eval to inf if either player has won
         if self.terminal_state():
             if self.board.winner_color == self.player_color:
                 return np.inf
             elif self.board.winner_color == self.player_color.opponent:
                 return -np.inf
 
-        return self.vertical_distances()
+        score = 0
+
+        # Vertical distance component
+        score += 1.0 * self.vertical_distances()
+
+        # Bonus for dominant positions
+        #score += 2.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
+
+        # Penalty for frogs left behind
+        #score += 3.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
+
+
+        return score
 
 
     def vertical_distances(self):
         """
         Returns the first evaluation component:
         The sum of the distances to the end of the board for each player frog
-        - that of the enemies.
+        minus that of the enemies.
         """
         player_sum = 0
         enemy_sum = 0
 
-        # Component 1
-        # Calculate the distance to the end of the board for each player frog
         if self.player_color == PlayerColor.RED:
             for p_coord in self.player_coords:
-                # Distance to end of board (-7)
                 distance = abs(p_coord.r - (constants.BOARD_N - 1))
                 player_sum += distance
-            # Sum up enemy frog distances (blue)
             for e_coord in self.enemy_coords:
-                # Distance to other end of board
                 distance = abs(e_coord.r)
                 enemy_sum += distance
 
         elif self.player_color == PlayerColor.BLUE:
             for p_coord in self.player_coords:
-                # Distance to other end of board (-7)
                 distance = abs(p_coord.r)
                 player_sum += distance
-            # Sum up enemy frog distances (red)
             for e_coord in self.enemy_coords:
-                # Distance to end of board
                 distance = abs(e_coord.r - (constants.BOARD_N - 1))
                 enemy_sum += distance
 
-
-        # Return the difference enemy sum and player sum
-        # As higher values are best for the player
         return enemy_sum - player_sum
 
+    def count_blocked_frogs(self, player_coords, enemy_coords):
+        # Net count of how many frogs have no legal moves. (Enemy - player counts)
+        score = 0
+        player_directions = self.get_possible_directions(self.board.turn_color)
+        enemy_directions = self.get_possible_directions(self.board.turn_color.opponent)
+
+        def is_blocked_frog(coord, directions):
+            for d in directions:
+                try:
+                    over = coord + d
+                    landing = over + d
+                    if self._coord_within_bounds(over) and self._coord_within_bounds(landing):
+                        # Jump Move
+                        if self.board[over].state in [PlayerColor.RED, PlayerColor.BLUE] and \
+                        self.board[landing].state == "LilyPad":
+                            return False
+
+                    # Normal Move
+                    if self._coord_within_bounds(over):
+                        if self.board[over].state == "LilyPad":
+                            return False
+                except ValueError:
+                    continue
+            return True
+
+        # Count blocked player frogs
+        for coord in player_coords:
+            blocked = is_blocked_frog(coord, player_directions)
+            if blocked:
+                score -= 1
+
+        # Count blocked enemy frogs
+        for coord in enemy_coords:
+            blocked = is_blocked_frog(coord, enemy_directions)
+            if blocked:
+                score += 1
+
+        return score
+
+    # Uncomment the following methods if needed later
+
+    def count_dominant_positions(self, player_coords, enemy_coords):
+        # Heuristic bonus for frogs close to the goal row
+        score = 0
+        N = constants.BOARD_N
+
+        for coord in player_coords:
+            if self.player_color == PlayerColor.RED:
+                if coord.r == N - 1:
+                    score += 3
+                elif coord.r == N - 2:
+                    score += 2
+                elif coord.r == N - 3:
+                    score += 1
+            elif self.player_color == PlayerColor.BLUE:
+                if coord.r == 0:
+                    score += 3
+                elif coord.r == 1:
+                    score += 2
+                elif coord.r == 2:
+                    score += 1
+
+        for coord in enemy_coords:
+            if self.player_color == PlayerColor.BLUE:
+                if coord.r == N - 1:
+                    score -= 3
+                elif coord.r == N - 2:
+                    score -= 2
+                elif coord.r == N - 3:
+                    score -= 1
+            elif self.player_color == PlayerColor.RED:
+                if coord.r == 0:
+                    score -= 3
+                elif coord.r == 1:
+                    score -= 2
+                elif coord.r == 2:
+                    score -= 1
+
+        return score
+
+    def count_left_behind(self, player_coords, enemy_coords):
+        # Penalty for frogs that remain far from the goal row
+        score = 0
+        N = constants.BOARD_N
+
+        for coord in player_coords:
+            if self.player_color == PlayerColor.RED:
+                if coord.r == 0:
+                    score -= 3
+                elif coord.r == 1:
+                    score -= 2
+                elif coord.r == 2:
+                    score -= 1
+            elif self.player_color == PlayerColor.BLUE:
+                if coord.r == N - 1:
+                    score -= 3
+                elif coord.r == N - 2:
+                    score -= 2
+                elif coord.r == N - 3:
+                    score -= 1
+
+        for coord in enemy_coords:
+            if self.player_color == PlayerColor.BLUE:
+                if coord.r == 0:
+                    score += 3
+                elif coord.r == 1:
+                    score += 2
+                elif coord.r == 2:
+                    score += 1
+            elif self.player_color == PlayerColor.RED:
+                if coord.r == N - 1:
+                    score += 3
+                elif coord.r == N - 2:
+                    score += 2
+                elif coord.r == N - 3:
+                    score += 1
+
+
+
+        return score
+    
+    def count_jump_opportunities(self, coords: list[Coord], color: PlayerColor) -> int:
+        """
+        Returns the number of positions where a frog can initiate at least one jump.
+        """
+        jump_count = 0
+        possible_directions = self.get_possible_directions(color)
+
+        for coord in coords:
+            for direction in possible_directions:
+                try:
+                    over = coord + direction
+                    landing = over + direction
+                except ValueError:
+                    continue
+
+                if not self._coord_within_bounds(over) or not self._coord_within_bounds(landing):
+                    continue
+
+                # Can jump if 'over' has any frog and 'landing' is a lily pad
+                if self.board[over].state in [PlayerColor.RED, PlayerColor.BLUE] and \
+                self.board[landing].state == "LilyPad":
+                    jump_count += 1
+                    break  # Count only one opportunity per frog
+        return jump_count
+
+
+
+    # DON'T USE YET AS CAN PROHIBIT FORWARD PROGRESS
+    def max_vert_distance_between_frogs(self, player_coords: list[Coord], enemy_coords: list[Coord]) -> int:
+        """
+        Returns the maximum vertical distance between any two enemy frogs
+        - that of the maximum vertical distance between any two player frogs.
+        """
+
+        player_min = min(coord.r for coord in player_coords)
+        player_max = max(coord.r for coord in player_coords)
+        player_dist = abs(player_max - player_min)
+
+        enemy_min = min(coord.r for coord in enemy_coords)
+        enemy_max = max(coord.r for coord in enemy_coords)
+        enemy_dist = abs(enemy_max - enemy_min)
+        return enemy_dist - player_dist

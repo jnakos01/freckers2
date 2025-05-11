@@ -382,8 +382,32 @@ class InternalBoard:
                     jump_count += 1
                     break  # Count only one opportunity per frog
         return jump_count
+    
+    def movement_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
+        if not isinstance(action, MoveAction):
+            return 0  # Neutral for GROW or others
 
+        if color is None:
+            color = self.player_color
 
+        start = action.coord
+        current = start
+
+        for d in action.directions:
+            if len(action.directions) == 1:
+                # Movimiento simple: solo avanzar una vez
+                current = current + d
+            else:
+                # Salto: avanzar dos veces en esa dirección
+                current = current + d + d
+
+        # Calcular avance vertical neto
+        if color == PlayerColor.RED:
+            delta = current.r - start.r
+        else:
+            delta = start.r - current.r
+
+        return delta if delta > 2 else 0
 
     # DON'T USE YET AS CAN PROHIBIT FORWARD PROGRESS
     def max_vert_distance_between_frogs(self, player_coords: list[Coord], enemy_coords: list[Coord]) -> int:

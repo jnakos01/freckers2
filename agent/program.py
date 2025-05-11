@@ -116,11 +116,20 @@ class Agent:
             # (Staring with the worst possible value)
             v = -np.inf
             # Look through all legal actions
-            for a in self._board.get_all_legal_actions(self._color):
+            legal_actions = self._board.get_all_legal_actions(self._color)
+            action_scores = {
+                a: self._board.movement_progress_heuristic(a, self._color)
+                for a in legal_actions
+            }
+            sorted_actions = sorted(legal_actions, key=lambda a: action_scores[a], reverse=True)
+
+            for a in sorted_actions:
                 # Apply action
                 self._board.update(a)
+                action_bonus = action_scores[a] * 0.5
                 # Call min_value function
-                v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
+                v = max(v, min_value(alpha, beta, depth + 1, depth_counter) + action_bonus)
+                #v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
@@ -138,13 +147,19 @@ class Agent:
 
             # Best value for min at this node so far
             v = np.inf
+            legal_actions = self._board.get_all_legal_actions(self._color.opponent)
+            action_scores = {
+                a: self._board.movement_progress_heuristic(a, self._color.opponent)
+                for a in legal_actions
+            }
+            sorted_actions = sorted(legal_actions, key=lambda a: action_scores[a], reverse=True)
 
-            # Look through all legal actions
-            for a in self._board.get_all_legal_actions(self._color.opponent):
+            for a in sorted_actions:
                 # Apply action
                 self._board.update(a)
+                action_penalty = action_scores[a] * 0.5
                 # Call max_value function
-                v = min(v, max_value(alpha, beta, depth + 1, depth_counter))
+                v = min(v, max_value(alpha, beta, depth + 1, depth_counter) + action_penalty)
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
