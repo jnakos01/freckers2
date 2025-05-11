@@ -201,10 +201,10 @@ class InternalBoard:
         score += 1.0 * self.vertical_distances()
 
         # Bonus for dominant positions
-        #score += 2.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
+        score += 2.0 * self.count_dominant_positions(self.player_coords, self.enemy_coords)
 
         # Penalty for frogs left behind
-        #score += 3.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
+        score += 3.0 * self.count_left_behind(self.player_coords, self.enemy_coords)
 
 
         return score
@@ -382,6 +382,28 @@ class InternalBoard:
 
 
         return score
+    
+    def movement_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
+        if not isinstance(action, MoveAction):
+            return 0 
+
+        if color is None:
+            color = self.player_color
+
+        start = action.coord
+        current = start
+        for d in action.directions:
+            if len(action.directions) == 1:
+                current = current + d
+            else:
+                current = current + d + d
+
+        if color == PlayerColor.RED:
+            delta = current.r - start.r
+        else:
+            delta = start.r - current.r
+
+        return delta if delta > 2 else 0
     
     def count_jump_opportunities(self, coords: list[Coord], color: PlayerColor) -> int:
         """

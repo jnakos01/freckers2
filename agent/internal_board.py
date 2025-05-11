@@ -236,6 +236,31 @@ class InternalBoard:
                 enemy_sum += distance
 
         return enemy_sum - player_sum
+    
+    def forward_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
+        if not isinstance(action, MoveAction):
+            return 0 
+
+        if color is None:
+            color = self.player_color
+
+        start = action.coord
+        current = start
+
+        for d in action.directions:
+            current = current + d if len(action.directions) == 1 else current + d + d
+
+        delta = current.r - start.r if color == PlayerColor.RED else start.r - current.r
+
+        if delta <= 0:
+            return 0
+
+        N = constants.BOARD_N
+        if (color == PlayerColor.RED and start.r >= N - 2) or \
+        (color == PlayerColor.BLUE and start.r <= 1):
+            return 0
+
+        return 1 
 
     def count_blocked_frogs(self, player_coords, enemy_coords):
         # Net count of how many frogs have no legal moves. (Enemy - player counts)
@@ -358,6 +383,28 @@ class InternalBoard:
 
         return score
     
+    def movement_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
+        if not isinstance(action, MoveAction):
+            return 0 
+
+        if color is None:
+            color = self.player_color
+
+        start = action.coord
+        current = start
+        for d in action.directions:
+            if len(action.directions) == 1:
+                current = current + d
+            else:
+                current = current + d + d
+
+        if color == PlayerColor.RED:
+            delta = current.r - start.r
+        else:
+            delta = start.r - current.r
+
+        return delta if delta > 2 else 0
+    
     def count_jump_opportunities(self, coords: list[Coord], color: PlayerColor) -> int:
         """
         Returns the number of positions where a frog can initiate at least one jump.
@@ -382,57 +429,7 @@ class InternalBoard:
                     jump_count += 1
                     break  # Count only one opportunity per frog
         return jump_count
-    
-    def movement_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
-        if not isinstance(action, MoveAction):
-            return 0  # Neutral for GROW or others
 
-        if color is None:
-            color = self.player_color
-
-        start = action.coord
-        current = start
-
-        for d in action.directions:
-            if len(action.directions) == 1:
-                # Movimiento simple: solo avanzar una vez
-                current = current + d
-            else:
-                # Salto: avanzar dos veces en esa dirección
-                current = current + d + d
-
-        # Calcular avance vertical neto
-        if color == PlayerColor.RED:
-            delta = current.r - start.r
-        else:
-            delta = start.r - current.r
-
-        return delta if delta > 2 else 0
-    
-    def forward_progress_heuristic(self, action: Action, color: PlayerColor = None) -> float:
-        if not isinstance(action, MoveAction):
-            return 0 
-
-        if color is None:
-            color = self.player_color
-
-        start = action.coord
-        current = start
-
-        for d in action.directions:
-            current = current + d if len(action.directions) == 1 else current + d + d
-
-        delta = current.r - start.r if color == PlayerColor.RED else start.r - current.r
-
-        if delta <= 0:
-            return 0
-
-        N = constants.BOARD_N
-        if (color == PlayerColor.RED and start.r >= N - 2) or \
-        (color == PlayerColor.BLUE and start.r <= 1):
-            return 0
-
-        return 1 
 
 
     # DON'T USE YET AS CAN PROHIBIT FORWARD PROGRESS
@@ -450,8 +447,3 @@ class InternalBoard:
         enemy_max = max(coord.r for coord in enemy_coords)
         enemy_dist = abs(enemy_max - enemy_min)
         return enemy_dist - player_dist
-
-
-
-
-

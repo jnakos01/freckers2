@@ -117,11 +117,16 @@ class Agent:
             v = -np.inf
             # Look through all legal actions
             legal_actions = self._board.get_all_legal_actions(self._color)
+            action_scores = {
+                a: self._board.movement_progress_heuristic(a, self._color)
+                for a in legal_actions
+            }
+            sorted_actions = sorted(legal_actions, key=lambda a: action_scores[a], reverse=True)
 
-            for a in legal_actions:
+            for a in sorted_actions:
                 # Apply action
                 self._board.update(a)
-
+                #action_bonus = action_scores[a] * 5
                 # Call min_value function
                 v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
                 #v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
@@ -143,10 +148,16 @@ class Agent:
             # Best value for min at this node so far
             v = np.inf
             legal_actions = self._board.get_all_legal_actions(self._color.opponent)
+            action_scores = {
+                a: self._board.movement_progress_heuristic(a, self._color.opponent)
+                for a in legal_actions
+            }
+            sorted_actions = sorted(legal_actions, key=lambda a: action_scores[a], reverse=True)
 
-            for a in legal_actions:
+            for a in sorted_actions:
                 # Apply action
                 self._board.update(a)
+                #action_penalty = action_scores[a] * 5
                 # Call max_value function
                 v = min(v, max_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action

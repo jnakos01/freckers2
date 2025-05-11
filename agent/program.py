@@ -126,9 +126,9 @@ class Agent:
             for a in sorted_actions:
                 # Apply action
                 self._board.update(a)
-                action_bonus = action_scores[a] * 0.5
+                #action_bonus = action_scores[a] * 5
                 # Call min_value function
-                v = max(v, min_value(alpha, beta, depth + 1, depth_counter) + action_bonus)
+                v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
                 #v = max(v, min_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action
                 self._board.undo_action()
@@ -157,9 +157,9 @@ class Agent:
             for a in sorted_actions:
                 # Apply action
                 self._board.update(a)
-                action_penalty = action_scores[a] * 0.5
+                #action_penalty = action_scores[a] * 5
                 # Call max_value function
-                v = min(v, max_value(alpha, beta, depth + 1, depth_counter) + action_penalty)
+                v = min(v, max_value(alpha, beta, depth + 1, depth_counter))
                 # Undo action
                 self._board.undo_action()
                 # Check for pruning
