@@ -5,7 +5,7 @@ from referee.game import PlayerColor, Coord, Direction, \
     Action, MoveAction, GrowAction, GameBegin
 
 from .internal_board import InternalBoard
-
+import random
 import numpy as np
 
 class Agent:
@@ -15,7 +15,7 @@ class Agent:
     """
 
     # Depth limit for the alpha-beta pruning algorithm
-    MAX_DEPTH = 3
+    MAX_DEPTH = 4
 
 
     def __init__(self, color: PlayerColor, **referee: dict):
@@ -42,9 +42,11 @@ class Agent:
         to take an action. It must always return an action object. 
         """
         # Call minimax with alpha-beta pruning here
-        # best_action = self.minmax_decision(self._board, self.MAX_DEPTH)p
-        best_action = self.alpha_beta_cutoff_search(self.MAX_DEPTH, **referee)
-        return best_action
+        # best_action = self.minmax_decision(self._board, self.MAX_DEPTH)
+        legal_actions = self._board.get_all_legal_actions(self._color)
+        return random.choice(legal_actions)
+        #best_action = self.alpha_beta_cutoff_search(self.MAX_DEPTH, **referee)
+        #return best_action
         """
         # Below we have hardcoded two actions to be played depending on whether
         # the agent is playing as BLUE or RED. Obviously this won't work beyond

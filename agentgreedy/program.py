@@ -41,9 +41,23 @@ class Agent:
         This method is called by the referee each time it is the agent's turn
         to take an action. It must always return an action object. 
         """
-        # Call minimax with alpha-beta pruning here
-        # best_action = self.minmax_decision(self._board, self.MAX_DEPTH)p
-        best_action = self.alpha_beta_cutoff_search(self.MAX_DEPTH, **referee)
+        legal_actions = self._board.get_all_legal_actions(self._color)
+        move_actions = [a for a in legal_actions if isinstance(a, MoveAction)]
+
+        if not move_actions:
+            return GrowAction()
+
+        # Escoge el movimiento con más avance inmediato
+        best_action = max(
+            move_actions,
+            key=lambda a: self._board.forward_progress_heuristic(a, self._color),
+            default=None
+        )
+
+        # Si no hay avance positivo, mejor crecer
+        if best_action is None or self._board.forward_progress_heuristic(best_action, self._color) <= 0:
+            return GrowAction()
+
         return best_action
         """
         # Below we have hardcoded two actions to be played depending on whether
