@@ -47,14 +47,12 @@ class Agent:
         if not move_actions:
             return GrowAction()
 
-        # Escoge el movimiento con más avance inmediato
         best_action = max(
             move_actions,
             key=lambda a: self._board.forward_progress_heuristic(a, self._color),
             default=None
         )
 
-        # Si no hay avance positivo, mejor crecer
         if best_action is None or self._board.forward_progress_heuristic(best_action, self._color) <= 0:
             return GrowAction()
 

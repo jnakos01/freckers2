@@ -258,7 +258,7 @@ class InternalBoard:
         N = constants.BOARD_N
         if (color == PlayerColor.RED and start.r >= N - 2) or \
         (color == PlayerColor.BLUE and start.r <= 1):
-            return 0
+            return 1
 
         return 1 
 
