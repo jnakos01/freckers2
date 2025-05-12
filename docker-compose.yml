@@ -1,6 +1,0 @@
-services:
-  freckers2:
-    image: freckers2
-    build:
-      context: .
-      dockerfile: ./Dockerfile
