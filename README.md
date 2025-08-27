@@ -34,7 +34,7 @@
    git clone https://github.com/jnakos01/freckers2.git
    cd freckers2
    ```
-2. **Play the agents against each other**
+2. **Play the agents against each other as shown below**
 
 ## Usage
 
@@ -42,7 +42,7 @@ To use agents with the referee module:
 ```bash
 python -m referee <red agent> <blue agent>
 ```
-For the agents just add the agent module name.
+For the agents, just add the agent module name.
 
 ## License
 
